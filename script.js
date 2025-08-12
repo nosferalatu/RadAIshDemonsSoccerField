@@ -108,7 +108,7 @@
     namePickerSelect.onchange = () => {
       if (selectedIndex !== -1) {
         const val = namePickerSelect.value.trim();
-        players[selectedIndex].name = val;
+        assignUniquePlayerName(selectedIndex, val);
         hideNamePicker();
         draw();
       }
@@ -127,6 +127,18 @@
 
   function hideNamePicker() {
     if (namePickerDiv) namePickerDiv.style.display = 'none';
+  }
+
+  function assignUniquePlayerName(playerIdx, newName) {
+    // If assigning a non-empty name, clear it from any other player first
+    if (newName) {
+      for (let i = 0; i < players.length; i++) {
+        if (i !== playerIdx && players[i].name === newName) {
+          players[i].name = "";
+        }
+      }
+    }
+    players[playerIdx].name = newName; // empty string means unassigned
   }
 
   function computeFieldRect() {
@@ -305,18 +317,24 @@
     return fontSize;
   }
 
+  function getUniformNameFontPx() {
+    // Use the size that "Knox" would get and apply it to all names
+    return computeNameFontSize("Knox");
+  }
+
   function drawPlayers() {
-    // Home team (white)
+    const uniformNameFont = getUniformNameFontPx();
+    // Home team (white) with glossy look and shadow
     for (let i = 0; i < players.length; i++) {
       const p = players[i];
       const c = mToPx(p.xM, p.yM);
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, playerRadiusPx, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
-      ctx.lineWidth = Math.max(1, playerRadiusPx * 0.18);
-      ctx.strokeStyle = "#111111";
-      ctx.stroke();
+      drawShinyMarker(c.x, c.y, playerRadiusPx, {
+        inner: "#ffffff",
+        mid: "#e6e6e6",
+        outer: "#bdbdbd",
+        ring: "#0e0e0e",
+        glossAlpha: 0.65
+      });
       const fontSize = computeLabelFontSize(p.pos);
       ctx.font = `bold ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
       ctx.textAlign = "center";
@@ -325,12 +343,10 @@
       ctx.fillText(p.pos, c.x, c.y);
 
       if (p.name) {
-        const nameSize = computeNameFontSize(p.name);
-        ctx.font = `600 ${nameSize}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+        ctx.font = `600 ${uniformNameFont}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         ctx.fillStyle = "#ffffff";
-        // subtle text shadow for readability
         ctx.shadowColor = "rgba(0,0,0,0.6)";
         ctx.shadowBlur = 4;
         ctx.shadowOffsetX = 0;
@@ -345,13 +361,13 @@
     for (let i = 0; i < opponents.length; i++) {
       const p = opponents[i];
       const c = mToPx(p.xM, p.yM);
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, playerRadiusPx, 0, Math.PI * 2);
-      ctx.fillStyle = "#ff9800"; // material orange 500
-      ctx.fill();
-      ctx.lineWidth = Math.max(1, playerRadiusPx * 0.18);
-      ctx.strokeStyle = "#111111";
-      ctx.stroke();
+      drawShinyMarker(c.x, c.y, playerRadiusPx, {
+        inner: "#ffd180",
+        mid: "#ffb74d",
+        outer: "#e67e00",
+        ring: "#0e0e0e",
+        glossAlpha: 0.5
+      });
       if (p.label) {
         const fontSize = computeLabelFontSize(p.label);
         ctx.font = `bold ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
@@ -361,6 +377,53 @@
         ctx.fillText(p.label, c.x, c.y);
       }
     }
+  }
+
+  function drawShinyMarker(cx, cy, r, colors) {
+    ctx.save();
+    // Drop shadow
+    ctx.shadowColor = "rgba(0,0,0,0.45)";
+    ctx.shadowBlur = Math.max(6, r * 0.6);
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = Math.max(2, r * 0.2);
+
+    // Radial gradient body
+    const grad = ctx.createRadialGradient(
+      cx - r * 0.35,
+      cy - r * 0.35,
+      r * 0.2,
+      cx,
+      cy,
+      r
+    );
+    grad.addColorStop(0, colors.inner);
+    grad.addColorStop(0.55, colors.mid);
+    grad.addColorStop(1, colors.outer);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    // Remove shadow for strokes/overlays
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+
+    // Outer ring
+    ctx.lineWidth = Math.max(1, r * 0.18);
+    ctx.strokeStyle = colors.ring;
+    ctx.stroke();
+
+    // Gloss highlight clipped to circle
+    ctx.save();
+    ctx.clip();
+    const glossGrad = ctx.createLinearGradient(cx - r, cy - r, cx, cy);
+    glossGrad.addColorStop(0, `rgba(255,255,255,${colors.glossAlpha})`);
+    glossGrad.addColorStop(0.7, "rgba(255,255,255,0)");
+    ctx.fillStyle = glossGrad;
+    ctx.beginPath();
+    ctx.arc(cx - r * 0.25, cy - r * 0.35, r * 0.9, -Math.PI * 0.15, Math.PI * 0.7);
+    ctx.fill();
+    ctx.restore();
+    ctx.restore();
   }
 
   function draw() {
@@ -374,7 +437,13 @@
     const r = ballRadiusPx;
     const size = r * 2;
     if (ballImgLoaded) {
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.45)";
+      ctx.shadowBlur = Math.max(6, r * 0.6);
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = Math.max(2, r * 0.2);
       ctx.drawImage(ballImg, c.x - r, c.y - r, size, size);
+      ctx.restore();
     } else {
       drawFallbackBall(c.x, c.y, r);
     }
@@ -383,6 +452,18 @@
   // Fallback canvas-rendered ball if SVG fails to load
   function drawFallbackBall(cx, cy, r) {
     ctx.save();
+    // Drop shadow under the ball
+    ctx.shadowColor = "rgba(0,0,0,0.45)";
+    ctx.shadowBlur = Math.max(6, r * 0.6);
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = Math.max(2, r * 0.2);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    // Now paint the glossy ball contents clipped to the circle
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.clip();
@@ -464,12 +545,23 @@
   }
 
   function hitTestPlayers(xPx, yPx) {
+    const uniformNameFont = getUniformNameFontPx();
+    const nameHeight = uniformNameFont * 1.1; // include top leading
     for (let i = players.length - 1; i >= 0; i--) {
-      const c = mToPx(players[i].xM, players[i].yM);
+      const p = players[i];
+      const c = mToPx(p.xM, p.yM);
       const dx = xPx - c.x;
       const dy = yPx - c.y;
-      if (dx * dx + dy * dy <= playerRadiusPx * playerRadiusPx) {
-        return i;
+      const withinCircle = dx * dx + dy * dy <= playerRadiusPx * playerRadiusPx;
+      if (withinCircle) return i;
+      if (p.name) {
+        // Expand hit area to rectangle covering name below the circle
+        const nameTop = c.y + playerRadiusPx + 2;
+        const nameBottom = nameTop + nameHeight;
+        const nameHalfWidth = playerRadiusPx * 1.2; // generous width
+        if (xPx >= c.x - nameHalfWidth && xPx <= c.x + nameHalfWidth && yPx >= nameTop && yPx <= nameBottom) {
+          return i;
+        }
       }
     }
     return -1;
