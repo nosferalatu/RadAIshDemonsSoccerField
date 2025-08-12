@@ -7,23 +7,37 @@
 
 html, body {
   height: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
 }
 
 body {
   margin: 0;
   background: var(--field-green);
   display: block;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
 }
 
 #app, canvas#field {
   width: 100vw;
-  height: 100vh;
+  height: 100vh; /* fallback */
   display: block;
+}
+
+@supports (height: 100dvh) {
+  #app, canvas#field {
+    width: 100dvw;
+    height: 100dvh;
+  }
 }
 
 canvas#field {
   background: var(--field-green);
   touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
 
 /* Inline name picker */
