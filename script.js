@@ -13,19 +13,59 @@
   let fieldRectPx = { x: 0, y: 0, w: 0, h: 0 };
   let playerRadiusPx = 12;
 
-  // Initial player layout (home, white) with labels
-  const players = [
-    // 3-2-3 on left half
-    { xM: 8,  yM: 34, pos: "GK",  name: "" },
-    { xM: 18, yM: 17, pos: "LD",  name: "" },
-    { xM: 18, yM: 34, pos: "CD",  name: "" },
-    { xM: 18, yM: 51, pos: "RD",  name: "" },
-    { xM: 34, yM: 24, pos: "CM",  name: "" },
-    { xM: 34, yM: 44, pos: "CM",  name: "" },
-    { xM: 46, yM: 17, pos: "LW",  name: "" },
-    { xM: 46, yM: 34, pos: "STR", name: "" },
-    { xM: 46, yM: 51, pos: "RW",  name: "" }
-  ];
+  // Formation definitions
+  const formations = {
+    "3-3-2": [
+      { xM: 8,  yM: 34, pos: "GK",  name: "" },
+      { xM: 18, yM: 17, pos: "LD",  name: "" },
+      { xM: 18, yM: 34, pos: "CD",  name: "" },
+      { xM: 18, yM: 51, pos: "RD",  name: "" },
+      { xM: 34, yM: 20, pos: "LM",  name: "" },
+      { xM: 34, yM: 34, pos: "CM",  name: "" },
+      { xM: 34, yM: 48, pos: "RM",  name: "" },
+      { xM: 50, yM: 26, pos: "STR", name: "" },
+      { xM: 50, yM: 42, pos: "STR", name: "" }
+    ],
+    "3-2-3": [
+      { xM: 8,  yM: 34, pos: "GK",  name: "" },
+      { xM: 18, yM: 17, pos: "LD",  name: "" },
+      { xM: 18, yM: 34, pos: "CD",  name: "" },
+      { xM: 18, yM: 51, pos: "RD",  name: "" },
+      { xM: 34, yM: 24, pos: "CM",  name: "" },
+      { xM: 34, yM: 44, pos: "CM",  name: "" },
+      { xM: 46, yM: 17, pos: "LW",  name: "" },
+      { xM: 46, yM: 34, pos: "STR", name: "" },
+      { xM: 46, yM: 51, pos: "RW",  name: "" }
+    ],
+    "2-3-3": [
+      { xM: 8,  yM: 34, pos: "GK",  name: "" },
+      { xM: 18, yM: 20, pos: "LD",  name: "" },
+      { xM: 18, yM: 48, pos: "RD",  name: "" },
+      { xM: 34, yM: 20, pos: "LM",  name: "" },
+      { xM: 34, yM: 34, pos: "CM",  name: "" },
+      { xM: 34, yM: 48, pos: "RM",  name: "" },
+      { xM: 46, yM: 17, pos: "LW",  name: "" },
+      { xM: 46, yM: 34, pos: "STR", name: "" },
+      { xM: 46, yM: 51, pos: "RW",  name: "" }
+    ],
+    "4-3-1": [
+      { xM: 8,  yM: 34, pos: "GK",  name: "" },
+      { xM: 18, yM: 15, pos: "LD",  name: "" },
+      { xM: 18, yM: 28, pos: "CD",  name: "" },
+      { xM: 18, yM: 40, pos: "CD",  name: "" },
+      { xM: 18, yM: 53, pos: "RD",  name: "" },
+      { xM: 34, yM: 20, pos: "LM",  name: "" },
+      { xM: 34, yM: 34, pos: "CM",  name: "" },
+      { xM: 34, yM: 48, pos: "RM",  name: "" },
+      { xM: 50, yM: 34, pos: "STR", name: "" }
+    ]
+  };
+
+  // Current formation
+  let currentFormation = "3-2-3";
+
+  // Initial player layout (home, white) with labels - start with 3-2-3
+  let players = JSON.parse(JSON.stringify(formations[currentFormation]));
 
   // Away team (orange). Only GK is labeled, others blank.
   const opponents = [
@@ -139,6 +179,7 @@
       }
     }
     players[playerIdx].name = newName; // empty string means unassigned
+    updateSubsList();
   }
 
   function computeFieldRect() {
@@ -729,8 +770,103 @@
     }
   });
 
+  // Formation change functionality
+  function changeFormation(formation) {
+    if (formations[formation]) {
+      currentFormation = formation;
+      
+      // Update players with new formation (clear all names)
+      players = JSON.parse(JSON.stringify(formations[formation]));
+      
+      // Update button text and active state
+      const formationBtn = document.getElementById('formation-btn');
+      formationBtn.textContent = `Formation: ${formation}`;
+      
+      // Update active state in dropdown
+      document.querySelectorAll('.formation-option').forEach(option => {
+        option.classList.remove('active');
+        if (option.dataset.formation === formation) {
+          option.classList.add('active');
+        }
+      });
+      
+      updateSubsList();
+      draw();
+    }
+  }
+
+  // Update subs list with unassigned players
+  function updateSubsList() {
+    const subsList = document.getElementById('subs-list');
+    if (!subsList) return;
+    
+    // Get all assigned player names
+    const assignedNames = new Set();
+    players.forEach(player => {
+      if (player.name) {
+        assignedNames.add(player.name);
+      }
+    });
+    
+    // Find unassigned players
+    const unassignedPlayers = roster.filter(name => !assignedNames.has(name));
+    
+    // Clear and rebuild the subs list
+    subsList.innerHTML = '';
+    
+    if (unassignedPlayers.length === 0) {
+      const noSubs = document.createElement('div');
+      noSubs.className = 'no-subs';
+      noSubs.textContent = 'No subs available';
+      subsList.appendChild(noSubs);
+    } else {
+      unassignedPlayers.forEach(name => {
+        const subPlayer = document.createElement('div');
+        subPlayer.className = 'sub-player';
+        subPlayer.textContent = name;
+        subsList.appendChild(subPlayer);
+      });
+    }
+  }
+
   window.addEventListener("resize", () => { hideNamePicker(); resizeAndDraw(); });
-  window.addEventListener("DOMContentLoaded", () => { resizeAndDraw(); });
+  window.addEventListener("DOMContentLoaded", () => { 
+    // Formation button event handlers
+    const formationBtn = document.getElementById('formation-btn');
+    const formationDropdown = document.getElementById('formation-dropdown');
+    
+    // Toggle dropdown on button click
+    formationBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      formationDropdown.classList.toggle('show');
+    });
+    
+    // Handle formation selection
+    document.querySelectorAll('.formation-option').forEach(option => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const formation = option.dataset.formation;
+        changeFormation(formation);
+        formationDropdown.classList.remove('show');
+      });
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!formationBtn.contains(e.target) && !formationDropdown.contains(e.target)) {
+        formationDropdown.classList.remove('show');
+      }
+    });
+    
+         // Set initial active state
+     changeFormation(currentFormation);
+     
+     // Initialize the field
+     resizeAndDraw();
+     
+     // Initialize subs list
+     updateSubsList(); 
+  });
 })();
 
 

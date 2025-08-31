@@ -9,6 +9,19 @@
 </head>
 <body>
   <div id="app">
+    <div class="formation-controls">
+      <button id="formation-btn" class="formation-button">Formation</button>
+      <div id="formation-dropdown" class="formation-dropdown">
+        <div class="formation-option" data-formation="3-3-2">3-3-2</div>
+        <div class="formation-option" data-formation="3-2-3">3-2-3</div>
+        <div class="formation-option" data-formation="2-3-3">2-3-3</div>
+        <div class="formation-option" data-formation="4-3-1">4-3-1</div>
+      </div>
+    </div>
+    <div class="subs-section">
+      <h3>Subs:</h3>
+      <div id="subs-list" class="subs-list"></div>
+    </div>
     <canvas id="field" aria-label="Soccer field"></canvas>
   </div>
   <script src="script.js"></script>
