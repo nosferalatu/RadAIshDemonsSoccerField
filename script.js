@@ -831,9 +831,23 @@
 
   window.addEventListener("resize", () => { hideNamePicker(); resizeAndDraw(); });
   window.addEventListener("DOMContentLoaded", () => { 
+    console.log("DOM Content Loaded - Initializing formation controls");
+    
     // Formation button event handlers
     const formationBtn = document.getElementById('formation-btn');
     const formationDropdown = document.getElementById('formation-dropdown');
+    
+    if (!formationBtn) {
+      console.error("Formation button not found!");
+      return;
+    }
+    
+    if (!formationDropdown) {
+      console.error("Formation dropdown not found!");
+      return;
+    }
+    
+    console.log("Formation controls found, setting up event handlers");
     
     // Toggle dropdown on button click
     formationBtn.addEventListener('click', (e) => {
