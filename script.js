@@ -387,14 +387,15 @@
         ctx.font = `600 ${uniformNameFont}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
+        
+        // Draw black outline first
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 3;
+        ctx.strokeText(p.name, c.x, c.y + playerRadiusPx + 4);
+        
+        // Then draw white text on top
         ctx.fillStyle = "#ffffff";
-        ctx.shadowColor = "rgba(0,0,0,0.6)";
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 1;
         ctx.fillText(p.name, c.x, c.y + playerRadiusPx + 4);
-        ctx.shadowColor = "transparent";
-        ctx.shadowBlur = 0;
       }
     }
 

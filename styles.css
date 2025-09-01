@@ -45,7 +45,7 @@ canvas#field {
   position: absolute;
   top: 20px;
   left: 20px;
-  z-index: 100;
+  z-index: 1000;
 }
 
 .formation-button {
@@ -96,6 +96,7 @@ canvas#field {
   margin-top: 8px;
   display: none;
   min-width: 120px;
+  z-index: 1001;
 }
 
 .formation-dropdown.show {
