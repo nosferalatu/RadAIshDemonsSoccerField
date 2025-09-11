@@ -58,11 +58,22 @@
       { xM: 34, yM: 34, pos: "CM",  name: "" },
       { xM: 34, yM: 48, pos: "RM",  name: "" },
       { xM: 50, yM: 34, pos: "STR", name: "" }
+    ],
+    "3-4-1": [
+      { xM: 8,  yM: 34, pos: "GK",  name: "" },
+      { xM: 18, yM: 17, pos: "LD",  name: "" },
+      { xM: 18, yM: 34, pos: "CD",  name: "" },
+      { xM: 18, yM: 51, pos: "RD",  name: "" },
+      { xM: 34, yM: 6, pos: "LM",  name: "" },
+      { xM: 34, yM: 24, pos: "CM",  name: "" },
+      { xM: 34, yM: 44, pos: "CM",  name: "" },
+      { xM: 34, yM: 62, pos: "RM",  name: "" },
+      { xM: 46, yM: 34, pos: "STR", name: "" }
     ]
   };
 
   // Current formation
-  let currentFormation = "3-2-3";
+  let currentFormation = "3-4-1";
 
   // Initial player layout (home, white) with labels - start with 3-2-3
   let players = JSON.parse(JSON.stringify(formations[currentFormation]));
