@@ -113,6 +113,9 @@
   // Ball at exact kickoff spot (center)
   const ball = { xM: FIELD_LENGTH_M / 2, yM: FIELD_WIDTH_M / 2 };
   let ballRadiusPx = 8;
+  // If attached, keep track of which player and offset (in meters)
+  // { team: 'home'|'away', index: number, offsetXM: number, offsetYM: number } | null
+  let ballAttached = null;
 
   // External SVG for realistic ball
   const BALL_SVG_URL = "https://upload.wikimedia.org/wikipedia/commons/e/ec/Soccer_ball.svg";
@@ -638,6 +641,36 @@
     return dx * dx + dy * dy <= ballRadiusPx * ballRadiusPx;
   }
 
+  function findBallAttachCandidate() {
+    // Returns { team: 'home'|'away', index } if the ball is touching a player
+    // Use pixel space to compare radii
+    const ballPx = mToPx(ball.xM, ball.yM);
+    const threshold = (playerRadiusPx + ballRadiusPx);
+    const thresholdSq = threshold * threshold;
+
+    // Check home first (either order is fine)
+    for (let i = 0; i < players.length; i++) {
+      const p = players[i];
+      const pp = mToPx(p.xM, p.yM);
+      const dx = ballPx.x - pp.x;
+      const dy = ballPx.y - pp.y;
+      if (dx * dx + dy * dy <= thresholdSq) {
+        return { team: 'home', index: i };
+      }
+    }
+    // Then away
+    for (let i = 0; i < opponents.length; i++) {
+      const p = opponents[i];
+      const pp = mToPx(p.xM, p.yM);
+      const dx = ballPx.x - pp.x;
+      const dy = ballPx.y - pp.y;
+      if (dx * dx + dy * dy <= thresholdSq) {
+        return { team: 'away', index: i };
+      }
+    }
+    return null;
+  }
+
   function updateCursor() {
     if (draggingIndex !== -1 || draggingBall) {
       canvas.style.cursor = "grabbing";
@@ -654,6 +687,8 @@
     // Prioritize ball if both overlap
     if (hitTestBall(pt.x, pt.y)) {
       draggingBall = true;
+      // Detach on direct ball control
+      ballAttached = null;
       try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
       updateCursor();
       return;
@@ -704,9 +739,17 @@
       if (draggingTeam === 'home') {
         players[draggingIndex].xM = m.xM;
         players[draggingIndex].yM = m.yM;
+        if (ballAttached && ballAttached.team === 'home' && ballAttached.index === draggingIndex) {
+          ball.xM = players[draggingIndex].xM + ballAttached.offsetXM;
+          ball.yM = players[draggingIndex].yM + ballAttached.offsetYM;
+        }
       } else if (draggingTeam === 'away') {
         opponents[draggingIndex].xM = m.xM;
         opponents[draggingIndex].yM = m.yM;
+        if (ballAttached && ballAttached.team === 'away' && ballAttached.index === draggingIndex) {
+          ball.xM = opponents[draggingIndex].xM + ballAttached.offsetXM;
+          ball.yM = opponents[draggingIndex].yM + ballAttached.offsetYM;
+        }
       }
       draw();
     } else {
@@ -748,6 +791,27 @@
     if (draggingBall) {
       try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
       draggingBall = false;
+      // On ball release, see if we should attach to a player
+      const attachTo = findBallAttachCandidate();
+      if (attachTo) {
+        if (attachTo.team === 'home') {
+          const p = players[attachTo.index];
+          ballAttached = {
+            team: 'home',
+            index: attachTo.index,
+            offsetXM: ball.xM - p.xM,
+            offsetYM: ball.yM - p.yM
+          };
+        } else {
+          const p = opponents[attachTo.index];
+          ballAttached = {
+            team: 'away',
+            index: attachTo.index,
+            offsetXM: ball.xM - p.xM,
+            offsetYM: ball.yM - p.yM
+          };
+        }
+      }
       updateCursor();
     } else if (draggingIndex !== -1) {
       try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
@@ -803,6 +867,17 @@
       });
       
       updateSubsList();
+      // If ball was attached to a home player, re-position with the new player location
+      if (ballAttached && ballAttached.team === 'home') {
+        const p = players[ballAttached.index];
+        if (p) {
+          ball.xM = p.xM + ballAttached.offsetXM;
+          ball.yM = p.yM + ballAttached.offsetYM;
+        } else {
+          // Index no longer valid; detach
+          ballAttached = null;
+        }
+      }
       draw();
     }
   }
