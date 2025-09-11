@@ -99,6 +99,7 @@
   let draggingBall = false;
   let hoverBall = false;
   let selectedIndex = -1;  // selected home player index for naming
+  let showArea = false;    // toggle for area of responsibility
 
   // Long-press detection for inline name picker
   const LONG_PRESS_MS = 600;
@@ -484,8 +485,145 @@
 
   function draw() {
     drawField();
+    drawAreaOfResponsibility();
     drawPlayers();
     drawBall();
+  }
+
+  function drawAreaOfResponsibility() {
+    if (!showArea || selectedIndex === -1) return;
+    const p = players[selectedIndex];
+    if (!p) return;
+
+    const rect = computeResponsibilityRect(p);
+    if (!rect) return;
+
+    const x = fieldRectPx.x;
+    const y = fieldRectPx.y;
+    const w = fieldRectPx.w;
+    const h = fieldRectPx.h;
+    const scale = w / FIELD_LENGTH_M;
+
+    const pxRect = {
+      x: x + rect.xM * scale,
+      y: y + rect.yM * scale,
+      w: rect.wM * scale,
+      h: rect.hM * scale
+    };
+
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = roleColor(p.pos);
+    ctx.fillRect(pxRect.x, pxRect.y, pxRect.w, pxRect.h);
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = Math.max(1, 0.12 * scale);
+    ctx.strokeStyle = roleColor(p.pos);
+    ctx.strokeRect(pxRect.x, pxRect.y, pxRect.w, pxRect.h);
+    ctx.restore();
+  }
+
+  function roleColor(pos) {
+    switch (pos) {
+      case 'GK': return '#00bcd4';
+      case 'LD': return '#2196f3';
+      case 'CD': return '#8bc34a';
+      case 'RD': return '#2196f3';
+      case 'LM': return '#ff7043';
+      case 'CM': return '#ffc107';
+      case 'RM': return '#ff7043';
+      case 'STR': return '#e91e63';
+      default: return '#9e9e9e';
+    }
+  }
+
+  // Returns rectangle in meters within field coords: { xM, yM, wM, hM }
+  function computeResponsibilityRect(player) {
+    const pos = player.pos;
+    // Field: xM ∈ [0,105], yM ∈ [0,68], left is our goal; we play left→right
+    // Helper constants
+    const halfX = FIELD_LENGTH_M / 2; // 52.5
+    const bitBeyond = 8;              // a little into opp half
+    const sideBit = 6;                // a little into opposite side area
+    const penaltyDepth = 16.5;
+    const goalAreaDepth = 5.5;
+    const wingMargin = 15;           // keep central roles away from touchlines ~ where LM/RM operate
+
+    switch (pos) {
+      case 'GK': {
+        // Mostly in penalty box, can sweep up to center of own half
+        const xM = 0;
+        const wM = halfX; // own half
+        // Y: slightly narrower than full width to imply centrality
+        return { xM, yM: (68 - 40) / 2, wM, hM: 40 };
+      }
+      case 'LD': {
+        // Left side up to halfway and a bit beyond
+        return { xM: 0, yM: 0, wM: halfX + bitBeyond, hM: 68 / 2 };
+      }
+      case 'CD': {
+        // Central vertical band (avoid wings), up to halfway and a bit beyond
+        return { xM: 0, yM: wingMargin, wM: halfX + bitBeyond, hM: 68 - 2 * wingMargin };
+      }
+      case 'RD': {
+        // Right side up to halfway and a bit beyond
+        return { xM: 0, yM: 68 / 2, wM: halfX + bitBeyond, hM: 68 / 2 };
+      }
+      case 'LM': {
+        // Left side; extend depth same as CM (to opponent's goal area line)
+        const xM = penaltyDepth / 2;
+        const xMax = FIELD_LENGTH_M;
+        return { xM, yM: 0, wM: xMax - xM, hM: 68 / 2 };
+      }
+      case 'CM': {
+        // Left CM: from a bit beyond LM to a bit beyond the right CM
+        // Right CM: from a bit beyond the left CM to a bit beyond RM
+        const xM = penaltyDepth / 2;
+        const xMax = FIELD_LENGTH_M; // extend to opponent end line as with LM/RM/STR
+        let lmY = null, rmY = null;
+        const cmIndices = [];
+        for (let i = 0; i < players.length; i++) {
+          const posi = players[i].pos;
+          if (posi === 'LM') lmY = players[i].yM;
+          if (posi === 'RM') rmY = players[i].yM;
+          if (posi === 'CM') cmIndices.push(i);
+        }
+        if (cmIndices.length < 2 || lmY == null || rmY == null) {
+          // Fallback static band if roles not found
+          const yTop = 6, yBottom = 62;
+          return { xM, yM: yTop, wM: xMax - xM, hM: yBottom - yTop };
+        }
+        const cmA = players[cmIndices[0]];
+        const cmB = players[cmIndices[1]];
+        const upperCM = cmA.yM <= cmB.yM ? cmA : cmB;
+        const lowerCM = cmA.yM > cmB.yM ? cmA : cmB;
+        const pad = 2;
+        if (player === upperCM) {
+          const yTop = Math.max(0, (lmY != null ? lmY : 0) - pad);
+          const yBottom = Math.min(68, lowerCM.yM + pad);
+          return { xM, yM: yTop, wM: xMax - xM, hM: yBottom - yTop };
+        } else if (player === lowerCM) {
+          const yTop = Math.max(0, upperCM.yM - pad);
+          const yBottom = Math.min(68, (rmY != null ? rmY : 68) + pad);
+          return { xM, yM: yTop, wM: xMax - xM, hM: yBottom - yTop };
+        } else {
+          const yTop = 6, yBottom = 62;
+          return { xM, yM: yTop, wM: xMax - xM, hM: yBottom - yTop };
+        }
+      }
+      case 'RM': {
+        // Right side; extend depth same as CM (to opponent's goal area line)
+        const xM = penaltyDepth / 2;
+        const xMax = FIELD_LENGTH_M;
+        return { xM, yM: 68 / 2, wM: xMax - xM, hM: 68 / 2 };
+      }
+      case 'STR': {
+        // Middle from halfway in own half to other goal line
+        const quarter = FIELD_LENGTH_M / 4; // ~26.25
+        return { xM: halfX - quarter, yM: 68 / 4, wM: halfX + quarter, hM: 68 / 2 };
+      }
+      default:
+        return null;
+    }
   }
 
   function drawBall() {
@@ -721,6 +859,8 @@
         }
       }, LONG_PRESS_MS);
       updateCursor();
+      // Immediately reflect selection state (for area highlight)
+      draw();
       return;
     }
     // Clicked elsewhere: hide any open picker
@@ -835,6 +975,7 @@
       selectedIndex = idx;
       const c = mToPx(players[idx].xM, players[idx].yM);
       showNamePickerAt(c.x, c.y + playerRadiusPx + 10, players[idx].name);
+      draw();
     }
   });
 
@@ -914,9 +1055,18 @@
         subsList.appendChild(subPlayer);
       });
     }
+    
+    // Position the toggle button beneath the subs section
+    positionToggleButton();
+  }
+  
+  // Position the toggle button on the right side (no longer needed with CSS positioning)
+  function positionToggleButton() {
+    // Button is now positioned with CSS on the right side
+    // This function is kept for compatibility but does nothing
   }
 
-  window.addEventListener("resize", () => { hideNamePicker(); resizeAndDraw(); });
+  window.addEventListener("resize", () => { hideNamePicker(); resizeAndDraw(); positionToggleButton(); });
   window.addEventListener("DOMContentLoaded", () => { 
     console.log("DOM Content Loaded - Initializing formation controls");
     
@@ -958,6 +1108,14 @@
         formationDropdown.classList.remove('show');
       }
     });
+    // Toggle area of responsibility
+    const areaToggle = document.getElementById('show-area-toggle');
+    if (areaToggle) {
+      areaToggle.addEventListener('change', () => {
+        showArea = areaToggle.checked;
+        draw();
+      });
+    }
     
          // Set initial active state
      changeFormation(currentFormation);
@@ -966,7 +1124,10 @@
      resizeAndDraw();
      
      // Initialize subs list
-     updateSubsList(); 
+     updateSubsList();
+     
+     // Position toggle button after initial layout
+     setTimeout(positionToggleButton, 100);
   });
 })();
 
