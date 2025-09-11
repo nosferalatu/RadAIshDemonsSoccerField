@@ -100,6 +100,8 @@
   let hoverBall = false;
   let selectedIndex = -1;  // selected home player index for naming
   let showArea = false;    // toggle for area of responsibility
+  let showZones = false;   // toggle for 18-zone grid
+  let zoneStates = {};     // zone number -> state: 0=normal, 1=green, 2=red
 
   // Long-press detection for inline name picker
   const LONG_PRESS_MS = 600;
@@ -292,9 +294,15 @@
     const goalAreaWidthPx = 18.32 * scale;
     const penaltySpotDistPx = 11 * scale; // distance of spot from goal line
 
+    // Align penalty boxes with zone boundaries
+    const zoneWidth = w / 6;
+    const leftPenaltyRightEdge = x + zoneWidth; // Line between zones 1/4, 7/10, 13/16
+    const rightPenaltyLeftEdge = x + 5 * zoneWidth; // Line between zones 3/6, 9/12, 15/18
+    
     // Left side areas and spot
     const leftY = center.y - penaltyWidthPx / 2;
-    ctx.strokeRect(x, leftY, penaltyDepthPx, penaltyWidthPx);
+    const leftPenaltyWidth = leftPenaltyRightEdge - x;
+    ctx.strokeRect(x, leftY, leftPenaltyWidth, penaltyWidthPx);
     const leftGoalY = center.y - goalAreaWidthPx / 2;
     ctx.strokeRect(x, leftGoalY, goalAreaDepthPx, goalAreaWidthPx);
     ctx.beginPath();
@@ -302,9 +310,9 @@
     ctx.fill();
 
     // Right side areas and spot
-    const rightX = x + w - penaltyDepthPx;
+    const rightPenaltyWidth = (x + w) - rightPenaltyLeftEdge;
     const rightY = center.y - penaltyWidthPx / 2;
-    ctx.strokeRect(rightX, rightY, penaltyDepthPx, penaltyWidthPx);
+    ctx.strokeRect(rightPenaltyLeftEdge, rightY, rightPenaltyWidth, penaltyWidthPx);
     const rightGoalX = x + w - goalAreaDepthPx;
     const rightGoalY = center.y - goalAreaWidthPx / 2;
     ctx.strokeRect(rightGoalX, rightGoalY, goalAreaDepthPx, goalAreaWidthPx);
@@ -329,22 +337,23 @@
 
     // Penalty arcs (the "D" at top of each penalty box)
     const penaltyArcRadiusPx = 9.15 * scale; // radius from penalty spot
-    const delta = (penaltyDepthPx - penaltySpotDistPx) / penaltyArcRadiusPx;
-    const clamped = Math.max(-1, Math.min(1, delta));
-    const theta = Math.acos(clamped);
-
-    // Left arc: centered at the left penalty spot, arc facing toward midfield (to the right)
+    
+    // Left arc: centered at the left penalty spot, clipped to penalty box boundary
     const leftArcCX = x + penaltySpotDistPx;
     const leftArcCY = center.y;
+    const leftArcMaxX = leftPenaltyRightEdge; // Clip to penalty box right edge
+    const leftArcTheta = Math.acos(Math.max(-1, Math.min(1, (leftArcMaxX - leftArcCX) / penaltyArcRadiusPx)));
     ctx.beginPath();
-    ctx.arc(leftArcCX, leftArcCY, penaltyArcRadiusPx, -theta, theta);
+    ctx.arc(leftArcCX, leftArcCY, penaltyArcRadiusPx, -leftArcTheta, leftArcTheta);
     ctx.stroke();
 
-    // Right arc: centered at the right penalty spot, arc facing toward midfield (to the left)
+    // Right arc: centered at the right penalty spot, clipped to penalty box boundary
     const rightArcCX = x + w - penaltySpotDistPx;
     const rightArcCY = center.y;
+    const rightArcMinX = rightPenaltyLeftEdge; // Clip to penalty box left edge
+    const rightArcTheta = Math.acos(Math.max(-1, Math.min(1, (rightArcCX - rightArcMinX) / penaltyArcRadiusPx)));
     ctx.beginPath();
-    ctx.arc(rightArcCX, rightArcCY, penaltyArcRadiusPx, Math.PI - theta, Math.PI + theta);
+    ctx.arc(rightArcCX, rightArcCY, penaltyArcRadiusPx, Math.PI - rightArcTheta, Math.PI + rightArcTheta);
     ctx.stroke();
   }
 
@@ -485,9 +494,86 @@
 
   function draw() {
     drawField();
+    drawZones();
     drawAreaOfResponsibility();
     drawPlayers();
     drawBall();
+  }
+
+  function drawZones() {
+    if (!showZones) return;
+    
+    const x = fieldRectPx.x;
+    const y = fieldRectPx.y;
+    const w = fieldRectPx.w;
+    const h = fieldRectPx.h;
+    const scale = w / FIELD_LENGTH_M;
+    
+    // 18-zone grid: 3 rows x 6 columns
+    const zoneWidth = w / 6;  // 6 horizontal columns
+    const zoneHeight = h / 3; // 3 vertical rows
+    
+    ctx.save();
+    
+    // Draw zone grid
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 6; col++) {
+        const zoneX = x + col * zoneWidth;
+        const zoneY = y + row * zoneHeight;
+        
+        // Calculate zone number (1-18, top to bottom, left to right)
+        const zoneNumber = col * 3 + row + 1;
+        const state = zoneStates[zoneNumber] || 0;
+        const greenActive = (state & 1) === 1;
+        const redActive = (state & 2) === 2;
+        
+        // Draw zone background based on state
+        if (greenActive) {
+          // Bright green highlight
+          ctx.globalAlpha = 0.5;
+          ctx.fillStyle = "#00e676";
+          ctx.fillRect(zoneX, zoneY, zoneWidth, zoneHeight);
+        }
+        if (redActive) {
+          // Red highlight
+          ctx.globalAlpha = 0.3;
+          ctx.fillStyle = "#f44336";
+          ctx.fillRect(zoneX, zoneY, zoneWidth, zoneHeight);
+        }
+        
+        // Draw zone border
+        ctx.globalAlpha = 0.15;
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = Math.max(1, 0.08 * scale);
+        ctx.strokeRect(zoneX, zoneY, zoneWidth, zoneHeight);
+        
+        // Draw zone number
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = "#ffffff";
+        ctx.font = `bold ${Math.max(12, Math.min(24, zoneWidth * 0.15))}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(zoneNumber.toString(), zoneX + zoneWidth / 2, zoneY + zoneHeight / 2);
+        
+        // Draw cross mark for red state
+        if (redActive) {
+          ctx.globalAlpha = 0.9;
+          ctx.strokeStyle = "#d32f2f";
+          ctx.lineWidth = Math.max(2, 0.12 * scale);
+          const centerX = zoneX + zoneWidth / 2;
+          const centerY = zoneY + zoneHeight / 2;
+          const crossSize = Math.min(zoneWidth, zoneHeight) * 0.3;
+          ctx.beginPath();
+          ctx.moveTo(centerX - crossSize, centerY - crossSize);
+          ctx.lineTo(centerX + crossSize, centerY + crossSize);
+          ctx.moveTo(centerX + crossSize, centerY - crossSize);
+          ctx.lineTo(centerX - crossSize, centerY + crossSize);
+          ctx.stroke();
+        }
+      }
+    }
+    
+    ctx.restore();
   }
 
   function drawAreaOfResponsibility() {
@@ -779,6 +865,29 @@
     return dx * dx + dy * dy <= ballRadiusPx * ballRadiusPx;
   }
 
+  function hitTestZone(xPx, yPx) {
+    if (!showZones) return -1;
+    
+    const x = fieldRectPx.x;
+    const y = fieldRectPx.y;
+    const w = fieldRectPx.w;
+    const h = fieldRectPx.h;
+    
+    // Check if click is within field bounds
+    if (xPx < x || xPx > x + w || yPx < y || yPx > y + h) return -1;
+    
+    const zoneWidth = w / 6;  // 6 horizontal columns
+    const zoneHeight = h / 3; // 3 vertical rows
+    
+    const col = Math.floor((xPx - x) / zoneWidth);
+    const row = Math.floor((yPx - y) / zoneHeight);
+    
+    // Calculate zone number (1-18, top to bottom, left to right)
+    const zoneNumber = col * 3 + row + 1;
+    
+    return zoneNumber;
+  }
+
   function findBallAttachCandidate() {
     // Returns { team: 'home'|'away', index } if the ball is touching a player
     // Use pixel space to compare radii
@@ -862,6 +971,34 @@
       // Immediately reflect selection state (for area highlight)
       draw();
       return;
+    }
+    // Check for zone clicks if zones are visible
+    if (showZones) {
+      const zoneNumber = hitTestZone(pt.x, pt.y);
+      if (zoneNumber !== -1) {
+        // Left click: toggle green state
+        const currentState = zoneStates[zoneNumber] || 0;
+        const greenActive = (currentState & 1) === 1;
+        const redActive = (currentState & 2) === 2;
+        
+        if (e.button === 0) { // Left click
+          if (e.ctrlKey) {
+            // Ctrl+Left click: toggle red (bit 1)
+            zoneStates[zoneNumber] = redActive ? (currentState & ~2) : (currentState | 2);
+          } else {
+            // Normal left click: if zone has any selection, clear it; otherwise toggle green
+            if (currentState > 0) {
+              // Clear all selections
+              zoneStates[zoneNumber] = 0;
+            } else {
+              // Toggle green (bit 0)
+              zoneStates[zoneNumber] = currentState | 1;
+            }
+          }
+        }
+        draw();
+        return;
+      }
     }
     // Clicked elsewhere: hide any open picker
     hideNamePicker();
@@ -1113,6 +1250,15 @@
     if (areaToggle) {
       areaToggle.addEventListener('change', () => {
         showArea = areaToggle.checked;
+        draw();
+      });
+    }
+    
+    // Toggle zones
+    const zonesToggle = document.getElementById('show-zones-toggle');
+    if (zonesToggle) {
+      zonesToggle.addEventListener('change', () => {
+        showZones = zonesToggle.checked;
         draw();
       });
     }

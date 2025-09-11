@@ -140,11 +140,17 @@ canvas#field {
   z-index: 100;
   min-width: 140px;
 }
-.global-toggle {
+.control-buttons {
   position: absolute;
   right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+}
+
+.global-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -156,7 +162,6 @@ canvas#field {
   font-size: 14px;
   font-weight: 600;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  z-index: 100;
 }
 
 .subs-section h3 {
