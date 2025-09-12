@@ -393,13 +393,31 @@
     for (let i = 0; i < players.length; i++) {
       const p = players[i];
       const c = mToPx(p.xM, p.yM);
-      drawShinyMarker(c.x, c.y, playerRadiusPx, {
-        inner: "#ffffff",
-        mid: "#e6e6e6",
-        outer: "#bdbdbd",
-        ring: "#0e0e0e",
-        glossAlpha: 0.65
-      });
+      
+      // Use different colors if player is selected and showArea is enabled
+      let colors;
+      if (showArea && selectedIndex === i) {
+        // Selected player gets a color matching their responsibility area
+        const areaColor = roleColor(p.pos);
+        colors = {
+          inner: areaColor,
+          mid: adjustBrightness(areaColor, -20),
+          outer: adjustBrightness(areaColor, -40),
+          ring: "#0e0e0e",
+          glossAlpha: 0.65
+        };
+      } else {
+        // Normal white player
+        colors = {
+          inner: "#ffffff",
+          mid: "#e6e6e6",
+          outer: "#bdbdbd",
+          ring: "#0e0e0e",
+          glossAlpha: 0.65
+        };
+      }
+      
+      drawShinyMarker(c.x, c.y, playerRadiusPx, colors);
       const fontSize = computeLabelFontSize(p.pos);
       ctx.font = `bold ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
       ctx.textAlign = "center";
@@ -620,6 +638,26 @@
       case 'STR': return '#e91e63';
       default: return '#9e9e9e';
     }
+  }
+
+  function adjustBrightness(hex, percent) {
+    // Remove the hash if present
+    hex = hex.replace('#', '');
+    
+    // Parse the hex color
+    const num = parseInt(hex, 16);
+    const amt = Math.round(2.55 * percent);
+    
+    // Extract RGB components
+    const R = (num >> 16) + amt;
+    const G = (num >> 8 & 0x00FF) + amt;
+    const B = (num & 0x0000FF) + amt;
+    
+    // Clamp values to 0-255
+    const clamp = (val) => Math.max(0, Math.min(255, val));
+    
+    // Convert back to hex
+    return '#' + (0x1000000 + clamp(R) * 0x10000 + clamp(G) * 0x100 + clamp(B)).toString(16).slice(1);
   }
 
   // Returns rectangle in meters within field coords: { xM, yM, wM, hM }
@@ -1000,8 +1038,12 @@
         return;
       }
     }
-    // Clicked elsewhere: hide any open picker
+    // Clicked elsewhere: hide any open picker and deselect player if showArea is enabled
     hideNamePicker();
+    if (showArea && selectedIndex !== -1) {
+      selectedIndex = -1;
+      draw();
+    }
   });
 
   canvas.addEventListener("pointermove", (e) => {
