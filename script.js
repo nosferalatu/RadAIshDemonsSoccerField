@@ -39,8 +39,8 @@
     ],
     "2-3-3": [
       { xM: 8,  yM: 34, pos: "GK",  name: "" },
-      { xM: 18, yM: 20, pos: "LD",  name: "" },
-      { xM: 18, yM: 48, pos: "RD",  name: "" },
+      { xM: 18, yM: 17, pos: "LD",  name: "" },
+      { xM: 18, yM: 51, pos: "RD",  name: "" },
       { xM: 34, yM: 20, pos: "LM",  name: "" },
       { xM: 34, yM: 34, pos: "CM",  name: "" },
       { xM: 34, yM: 48, pos: "RM",  name: "" },
@@ -69,6 +69,17 @@
       { xM: 34, yM: 44, pos: "CM",  name: "" },
       { xM: 34, yM: 62, pos: "RM",  name: "" },
       { xM: 46, yM: 34, pos: "STR", name: "" }
+    ],
+    "2-4-2": [
+      { xM: 8,  yM: 34, pos: "GK",  name: "" },
+      { xM: 18, yM: 26, pos: "LD",  name: "" },
+      { xM: 18, yM: 42, pos: "RD",  name: "" },
+      { xM: 34, yM: 6, pos: "LM",  name: "" },
+      { xM: 34, yM: 24, pos: "CM",  name: "" },
+      { xM: 34, yM: 44, pos: "CM",  name: "" },
+      { xM: 34, yM: 62, pos: "RM",  name: "" },
+      { xM: 50, yM: 26, pos: "STR", name: "" },
+      { xM: 50, yM: 42, pos: "STR", name: "" }
     ]
   };
 
