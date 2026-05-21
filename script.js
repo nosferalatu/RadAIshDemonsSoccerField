@@ -153,8 +153,8 @@
 
   // Roster and UI setup
   const roster = [
-    "Alex","Charlie","Connery","Elijah","Hayden","Kabir","Knox",
-    "Levi","Linus","Oliver","Rocket","Sakima","Sebastian"
+      "Alex","Charlie","Cole","Connery","Cristian","Hayden","Josh","Knox",
+      "Levi","Linus","Rocket","Sakima","Sebastian","Sidhant"
   ];
   function ensureNamePicker() {
     if (namePickerDiv) return;
